@@ -12,7 +12,9 @@ use crate::backend::net::write_sockaddr::{encode_sockaddr_v4, encode_sockaddr_v6
 use crate::io::{self, IoSlice, IoSliceMut};
 #[cfg(target_os = "linux")]
 use crate::net::xdp::SocketAddrXdp;
-use crate::net::{RecvAncillaryBuffer, SendAncillaryBuffer, SocketAddrV4, SocketAddrV6};
+use crate::net::{
+    RawSocketAddr, RecvAncillaryBuffer, SendAncillaryBuffer, SocketAddrV4, SocketAddrV6,
+};
 use crate::utils::as_ptr;
 
 use core::mem::{size_of, zeroed, MaybeUninit};

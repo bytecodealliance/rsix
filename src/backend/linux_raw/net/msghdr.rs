@@ -9,10 +9,11 @@ use crate::backend::c;
 #[cfg(target_os = "linux")]
 use crate::backend::net::write_sockaddr::encode_sockaddr_xdp;
 use crate::backend::net::write_sockaddr::{encode_sockaddr_v4, encode_sockaddr_v6};
-
 use crate::io::{self, IoSlice, IoSliceMut};
 #[cfg(target_os = "linux")]
 use crate::net::xdp::SocketAddrXdp;
+#[cfg(target_os = "linux")]
+use crate::net::RawSocketAddr;
 use crate::net::{RecvAncillaryBuffer, SendAncillaryBuffer, SocketAddrV4, SocketAddrV6};
 use crate::utils::as_ptr;
 
