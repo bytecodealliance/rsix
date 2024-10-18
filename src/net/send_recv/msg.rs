@@ -5,6 +5,7 @@
 use crate::backend::{self, c};
 use crate::fd::{AsFd, BorrowedFd, OwnedFd};
 use crate::io::{self, IoSlice, IoSliceMut};
+use crate::net::RawSocketAddr;
 #[cfg(linux_kernel)]
 use crate::net::UCred;
 
@@ -777,6 +778,42 @@ pub fn sendmsg_any(
         #[cfg(target_os = "linux")]
         Some(SocketAddrAny::Xdp(addr)) => {
             backend::net::syscalls::sendmsg_xdp(socket.as_fd(), addr, iov, control, flags)
+        }
+    }
+}
+
+/// `sendmsg(msghdr)`—Sends a message on a socket to a specific address.
+///
+/// # References
+///  - [POSIX]
+///  - [Linux]
+///  - [Apple]
+///  - [FreeBSD]
+///  - [NetBSD]
+///  - [OpenBSD]
+///  - [DragonFly BSD]
+///  - [illumos]
+///
+/// [POSIX]: https://pubs.opengroup.org/onlinepubs/9799919799/functions/sendmsg.html
+/// [Linux]: https://man7.org/linux/man-pages/man2/sendmsg.2.html
+/// [Apple]: https://developer.apple.com/library/archive/documentation/System/Conceptual/ManPages_iPhoneOS/man2/sendmsg.2.html
+/// [FreeBSD]: https://man.freebsd.org/cgi/man.cgi?query=sendmsg&sektion=2
+/// [NetBSD]: https://man.netbsd.org/sendmsg.2
+/// [OpenBSD]: https://man.openbsd.org/sendmsg.2
+/// [DragonFly BSD]: https://man.dragonflybsd.org/?command=sendmsg&section=2
+/// [illumos]: https://illumos.org/man/3SOCKET/sendmsg
+#[inline]
+pub fn sendmsg_raw(
+    socket: impl AsFd,
+    addr: Option<&RawSocketAddr>,
+    iov: &[IoSlice<'_>],
+    control: &mut SendAncillaryBuffer<'_, '_, '_>,
+    flags: SendFlags,
+) -> io::Result<usize> {
+    match addr {
+        None => backend::net::syscalls::sendmsg(socket.as_fd(), iov, control, flags),
+        Some(addr) => {
+            backend::net::syscalls::sendmsg_raw(socket.as_fd(), addr, iov, control, flags)
         }
     }
 }

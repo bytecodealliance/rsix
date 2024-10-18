@@ -157,6 +157,24 @@ pub(crate) fn with_xdp_msghdr<R>(
     })
 }
 
+/// Create a message header with a pre-encoded address.
+pub(crate) fn with_raw_msghdr<R>(
+    addr: &RawSocketAddr,
+    iov: &[IoSlice<'_>],
+    control: &mut SendAncillaryBuffer<'_, '_, '_>,
+    f: impl FnOnce(c::msghdr) -> R,
+) -> R {
+    f(c::msghdr {
+        msg_name: addr.as_ptr() as _,
+        msg_namelen: addr.namelen() as _,
+        msg_iov: iov.as_ptr() as _,
+        msg_iovlen: msg_iov_len(iov.len()),
+        msg_control: control.as_control_ptr().cast(),
+        msg_controllen: msg_control_len(control.control_len()),
+        msg_flags: 0,
+    })
+}
+
 /// Create a zero-initialized message header struct value.
 pub(crate) fn zero_msghdr() -> c::msghdr {
     c::msghdr {

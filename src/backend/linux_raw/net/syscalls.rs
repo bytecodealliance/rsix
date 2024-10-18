@@ -8,7 +8,8 @@
 #[cfg(target_os = "linux")]
 use super::msghdr::with_xdp_msghdr;
 use super::msghdr::{
-    with_noaddr_msghdr, with_recv_msghdr, with_unix_msghdr, with_v4_msghdr, with_v6_msghdr,
+    with_noaddr_msghdr, with_raw_msghdr, with_recv_msghdr, with_unix_msghdr, with_v4_msghdr,
+    with_v6_msghdr,
 };
 use super::read_sockaddr::{initialize_family_to_unspec, maybe_read_sockaddr_os, read_sockaddr_os};
 use super::send_recv::{RecvFlags, SendFlags};
@@ -25,8 +26,9 @@ use crate::io::{self, IoSlice, IoSliceMut};
 #[cfg(target_os = "linux")]
 use crate::net::xdp::SocketAddrXdp;
 use crate::net::{
-    AddressFamily, Protocol, RecvAncillaryBuffer, RecvMsgReturn, SendAncillaryBuffer, Shutdown,
-    SocketAddrAny, SocketAddrUnix, SocketAddrV4, SocketAddrV6, SocketFlags, SocketType,
+    AddressFamily, Protocol, RawSocketAddr, RecvAncillaryBuffer, RecvMsgReturn,
+    SendAncillaryBuffer, Shutdown, SocketAddrAny, SocketAddrUnix, SocketAddrV4, SocketAddrV6,
+    SocketFlags, SocketType,
 };
 use c::{sockaddr, sockaddr_in, sockaddr_in6, socklen_t};
 use core::mem::MaybeUninit;
@@ -418,6 +420,43 @@ pub(crate) fn sendmsg_xdp(
     msg_flags: SendFlags,
 ) -> io::Result<usize> {
     with_xdp_msghdr(addr, iov, control, |msghdr| {
+        #[cfg(not(target_arch = "x86"))]
+        let result =
+            unsafe { ret_usize(syscall!(__NR_sendmsg, sockfd, by_ref(&msghdr), msg_flags)) };
+
+        #[cfg(target_arch = "x86")]
+        let result = unsafe {
+            ret_usize(syscall!(
+                __NR_socketcall,
+                x86_sys(SYS_SENDMSG),
+                slice_just_addr::<ArgReg<'_, SocketArg>, _>(&[
+                    sockfd.into(),
+                    by_ref(&msghdr),
+                    msg_flags.into()
+                ])
+            ))
+        };
+
+        result
+    })
+}
+
+#[cfg(not(any(
+    windows,
+    target_os = "espidf",
+    target_os = "redox",
+    target_os = "vita",
+    target_os = "wasi"
+)))]
+#[inline]
+pub(crate) fn sendmsg_raw(
+    sockfd: BorrowedFd<'_>,
+    addr: &RawSocketAddr,
+    iov: &[IoSlice<'_>],
+    control: &mut SendAncillaryBuffer<'_, '_, '_>,
+    msg_flags: SendFlags,
+) -> io::Result<usize> {
+    with_raw_msghdr(addr, iov, control, |msghdr| {
         #[cfg(not(target_arch = "x86"))]
         let result =
             unsafe { ret_usize(syscall!(__NR_sendmsg, sockfd, by_ref(&msghdr), msg_flags)) };
